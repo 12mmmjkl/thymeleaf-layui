@@ -1,0 +1,280 @@
+<!DOCTYPE html >
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script th:src="@{/js/jquery-1.10.2.js}"></script>
+    <script th:src="@{/layui/layui.all.js}"></script>
+    <link rel="stylesheet" th:href="@{/layui/css/layui.css}">
+</head>
+<body>
+
+<!--    <input type="text" name="sname" required lay-verify="required" id="input-name"-->
+<!--       placeholder="请输入标题" autocomplete="off" class="layui-input-sm">-->
+
+<!--    <button type="button" class="layui-btn layui-btn-xs layui-btn-normal">-->
+<!--        <i class="layui-icon layui-icon-search" style="font-size: 8px;"></i>-->
+<!--        查询</button>-->
+
+<!--    <form class="layui-form xbs" action="" >-->
+<!--        <div class="layui-form-pane">-->
+<!--            <div class="layui-form-item" style="display: inline-block;">-->
+<!--                <div class="layui-input-inline">-->
+<!--                    <input type="text" name="sname"  id="demoReload" placeholder="请输入用户名" autocomplete="off" class="layui-input">-->
+<!--                </div>-->
+<!--                <div class="layui-input-inline" style="width:170px">-->
+<!--                    <button class="layui-btn layui-btn-normal" data-type="reload"  lay-submit lay-filter="search"><i class="layui-icon">&#xe615;</i></button>-->
+<!--                    <button type="button" class="layui-btn layui-btn-normal" id="btn-add" lay-even="add">添加</button>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        </div>-->
+<!--    </form>-->
+    <div class="demoTable">
+        <span class="layui-form-label">搜索条件：</span>
+    <!--// 搜索ID：-->
+        <div class="layui-inline">
+            <input class="layui-input" name="sname" id="sname" autocomplete="off" placeholder="请输入学生姓名">
+        </div>
+        <div class="layui-input-inline" style="width:160px">
+            <button class="layui-btn" id="searchBtn" data-type="reload">查询</button>
+            <button type="button" class="layui-btn" id="btn-add" lay-even="add">添加</button>
+        </div>
+    </div>
+
+
+    <table id="demo" lay-filter="test"></table>
+
+    <script src="/layui/layui.js"></script>
+    <script>
+        layui.use(['form','layer','table','jquery'], function(){
+            var table = layui.table;
+            var form=layui.form,layer=layui.layer,$ = layui.jquery;
+
+            table.render({
+                elem: '#demo'
+                ,height: 312
+                ,url: 'selectAll' //数据接口
+                ,page: true //开启分页
+                ,limit:5
+                ,limits:[5,10,15,20,25,30]
+                ,cols: [
+                    [ //表头
+                    {field: 'id', title: '学号', width:200, sort: true, fixed: 'left'}
+                    ,{field: 'name', title: '姓名', width:120}
+                    ,{field: 'age', title: '年龄', width:80, sort: true}
+                    ,{fixed: 'right', width:200, align:'center', toolbar: '#barDemo'} //这里的toolbar值是模板元素的选择器
+                ]
+                ]
+            });
+
+            table.on('tool(test)', function(obj){ //注：tool 是工具条事件名，test 是 table 原始容器的属性 lay-filter="对应的值"
+                var data = obj.data; //获得当前行数据
+                var layEvent = obj.event; //获得 lay-event 对应的值（也可以是表头的 event 参数对应的值）
+                var tr = obj.tr; //获得当前行 tr 的 DOM 对象（如果有的话）
+
+               if(layEvent === 'del'){ //删除
+                    layer.confirm('确定删除？', function(index){
+                        obj.del(); //删除对应行（tr）的DOM结构，并更新缓存
+                        layer.close(index);
+                        //向服务端发送删除指令
+                        $.ajax({
+                            type: 'get',
+                            url: 'deleteStudent',
+                        data: {
+                            id: data.id,  //此处是根据id查询此id是否被删除，故将id传向后端
+                        },
+                        contentType: 'application/json',
+                            success: function (data) {
+                            layer.msg('删除成功啦', { icon: 1 }, { time: 2000 });
+                        },
+                        error: function (data) {
+                            layer.msg('连接网络失败，请检查网络设置或联系管理员', { icon: 2 }, { time: 2000 });
+                        }
+                    });
+                    });
+                } else if(layEvent === 'edit'){ //编辑
+                   layer.open({
+                       //layer提供了5种层类型。可传入的值有：0（信息框，默认）1（页面层）2（iframe层）3（加载层）4（tips层）
+                       type: 1,
+                       title: "修改学生信息",
+                       area: ['420px', '330px'],
+                       content: $("#popUpdateTest")//引用的弹出层的页面层的方式加载修改界面表单
+                    });
+                   //动态向表传递赋值可以参看文章进行修改界面的更新前数据的显示，当然也是异步请求的要数据的修改数据的获取
+                   setFormValue(obj,data);
+                } else if(layEvent === 'LAYTABLE_TIPS'){
+                    layer.alert('Hi，头部工具栏扩展的右侧图标。');
+                }
+            });
+
+            //监听弹出框表单提交，massage是修改界面的表单数据'submit(demo11),是修改按钮的绑定
+            function setFormValue(obj,data){
+                form.on('submit(demo11)', function(massage) {
+                    $.ajax({
+                        url:'updateStudent',
+                        type:'POST',
+                        data:{
+                            // oldeqptType:data.eqptType,
+                            // oldeqptIdCode:data.eqptIdCode,
+                            // neweqptType:massage.field.neweqptType,
+                            // neweqptIdCode:massage.field.neweqptIdCode,
+                            // eqptName:"修改采集器"
+                            id:data.id,
+                            name:massage.field.name,
+                            age:massage.field.age
+                        },
+                        success:function (msg) {
+                            var returnCode = msg.returnCode;//取得返回数据（Sting类型的字符串）的信息进行取值判断
+                            if(returnCode==200){
+                                layer.closeAll('loading');
+                                layer.load(2);
+                                layer.msg("修改成功", {icon: 6});
+                                setTimeout(function(){
+                                    obj.update({
+                                        eqptIdCode:massage.field.name,
+                                        eqptName:massage.field.age
+                                    });//修改成功修改表格数据不进行跳转
+                                    layer.closeAll();//关闭所有的弹出层
+                                }, 1000);
+                                加载层-风格
+                            }else{
+                                layer.msg("修改失败", {icon: 5});
+                            }
+                        }
+                    })
+                })
+
+            }
+
+            //添加学生信息
+            $('#btn-add').on('click', function () {
+                layer.open({
+                    type: 1,
+                    title: '添加学生信息',
+                    area: ['420px', '330px'],
+                    content: $("#addStudent"),//添加设备的from表单是在另一个html中，这是弹出方式的第三种方式
+                });
+                form.on('submit(demo12)', function(massage) {
+                    $.ajax({
+                        url:'addStudent',
+                        type:'POST',
+                        data:{
+                            id:massage.field.id,
+                            name:massage.field.name,
+                            age:massage.field.age
+                        },
+                        success:function (msg) {
+                            var returnCode = msg.returnCode;//取得返回数据（Sting类型的字符串）的信息进行取值判断
+                            if(returnCode==200){
+                                layer.closeAll('loading');
+                                layer.load(2);
+                                layer.msg("添加成功", {icon: 6});
+                            }else{
+                                layer.msg("修改失败", {icon: 5});
+                            }
+                        }
+                    })
+                })
+            });
+            //
+            // $('#searchBtn').on('click',function(){
+            //      var type = $(this).data('type');
+            //      active[type] ? active[type].call(this) : '';
+            // });
+
+            //根据条件查询表格数据重新加载
+            var active = {
+                reload: function(){
+                    //获取用户名
+                    var demoReload = $('#sname');
+                    //执行重载
+                    table.reload('userTableReload', {
+                        page: {
+                            curr: 1 //重新从第 1 页开始
+                        }
+                        //根据条件查询
+                        ,where: {
+                            name:demoReload.val()
+                        }
+                    });
+                }
+            };
+            //点击搜索按钮根据用户名称查询
+            $('#searchBtn').on('click',
+                function(){
+                    var type = $(this).data('type');
+                    active[type] ? active[type].call(this) : '';
+                });
+        });
+
+    </script>
+
+    <script type="text/html" id="barDemo">
+        <a 	class="layui-btn layui-btn-normal" lay-event="edit">修改</a>
+        <a class="layui-btn layui-btn-danger" lay-event="del">删除</a>
+    </script>
+
+<!--//这里是弹出层的表单信息-->
+<!--//表单的id用于表单的选择，style是在本页隐藏，只有点击编辑才会弹出-->
+    <div class="layui-row" id="popUpdateTest" style="display:none;">
+        <div class="layui-col-md10">
+        <form class="layui-form layui-from-pane" action="" style="margin-top:20px" >
+            <div class="layui-form-item">
+                <label class="layui-form-label">姓名</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name"  required  lay-verify="required" autocomplete="off" placeholder="请输入学生姓名" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">年龄</label>
+                <div class="layui-input-block">
+                    <input type="text" name="age"  required  lay-verify="required" autocomplete="off" placeholder="请输入年龄" class="layui-input">
+                </div>
+            </div>
+
+            <div class="layui-form-item" style="margin-top:40px">
+                <div class="layui-input-block">
+                    <button class="layui-btn  layui-btn-submit " lay-submit="" lay-filter="demo11">确认修改</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    </div>
+
+    <div class="layui-row" id="addStudent" style="display:none;">
+    <div class="layui-col-md10">
+        <form class="layui-form layui-from-pane" action="" style="margin-top:20px" >
+            <div class="layui-form-item">
+                <label class="layui-form-label">学号</label>
+                <div class="layui-input-block">
+                    <input type="text" name="id"  required  lay-verify="required" autocomplete="off" placeholder="请输入学生学号" class="layui-input">
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">姓名</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name"  required  lay-verify="required" autocomplete="off" placeholder="请输入学生姓名" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">年龄</label>
+                <div class="layui-input-block">
+                    <input type="text" name="age"  required  lay-verify="required" autocomplete="off" placeholder="请输入年龄" class="layui-input">
+                </div>
+            </div>
+
+            <div class="layui-form-item" style="margin-top:40px">
+                <div class="layui-input-block">
+                    <button class="layui-btn  layui-btn-submit " lay-submit="" lay-filter="demo12">确认信息</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+
+</html>
+
